@@ -298,7 +298,7 @@ static inline void _RING_MPMC_RST_ENQ_MULTI(_ring_mpmc_rst_gen_t *ring, uint32_t
 
 	/* Reserve a slot in the ring for writing */
 	old_head = odp_atomic_fetch_add_u32(&ring->r.w_head, num);
-	new_head = old_head + 1;
+	new_head = old_head + num;
 
 	/* Wait for the last reader to finish. This prevents overwrite when
 	 * a reader has been left behind (e.g. due to an interrupt) and is
@@ -309,14 +309,14 @@ static inline void _RING_MPMC_RST_ENQ_MULTI(_ring_mpmc_rst_gen_t *ring, uint32_t
 
 	/* Write data */
 	for (i = 0; i < num; i++)
-		ring->data[(new_head + i) & mask] = data[i];
+		ring->data[(old_head + 1 + i) & mask] = data[i];
 
 	/* Wait until other writers have updated the tail */
 	while (odp_unlikely(odp_atomic_load_u32(&ring->r.w_tail) != old_head))
 		odp_cpu_pause();
 
 	/* Release the new writer tail, readers acquire it. */
-	odp_atomic_store_rel_u32(&ring->r.w_tail, old_head + num);
+	odp_atomic_store_rel_u32(&ring->r.w_tail, new_head);
 }
 
 static inline uint32_t _RING_MPMC_RST_LEN(_ring_mpmc_rst_gen_t *ring)
